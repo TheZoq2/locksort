@@ -51,67 +51,56 @@ fn load_shader(facade: &impl Facade, filename: &Path) -> ComputeShader {
 
 
 fn sorted_screenshot(display: &impl Facade) {
-    {
-        // Capture a screenshot
-        let display = Display::primary().expect("Couldn't open display");
-        let mut capturer = Capturer::new(display).expect("Couldn't begin capture");
-        let (w, h) = (capturer.width(), capturer.height());
-
-        println!("{}, {}", w, h);
-
-        let buffer = loop {
-            match capturer.frame() {
-                Ok(buffer) => break buffer,
-                Err(error) => {
-                    if error.kind() == WouldBlock {
-                        continue;
-                    }
-                    else {
-                        panic!("Error: {}", error)
-                    }
+    let screenshot_display = Display::primary().expect("Couldn't open display");
+    let mut capturer = Capturer::new(screenshot_display).expect("Couldn't begin capture");
+    let (w, h) = (capturer.width(), capturer.height());
+    // Capture a screenshot
+    let buffer = loop {
+        match capturer.frame() {
+            Ok(buffer) => break buffer,
+            Err(error) => {
+                if error.kind() == WouldBlock {
+                    continue;
+                }
+                else {
+                    panic!("Error: {}", error)
                 }
             }
-        };
-    }
+        }
+    };
 
     struct Data {
-        values: [f32],
+        values: [[f32; 4]],
     }
 
     implement_buffer_content!(Data);
     implement_uniform_block!(Data, values);
 
-    const NUM_VALUES: usize = 16;
+    // const NUM_VALUES: usize = 32;
+    let num_values = (2 as f32).powi(((w * h) as f32).log2() as i32) as usize;
 
     let mut buffer: glium::uniforms::UniformBuffer<Data> =
-              UniformBuffer::empty_unsized(display, 4 * NUM_VALUES).unwrap();
+              UniformBuffer::empty_unsized(display, 4*4 * num_values).unwrap();
 
     {
         let mut mapping = buffer.map();
         for (_, val) in mapping.values.iter_mut().enumerate() {
-            *val = rand::random::<f32>();
-            // *val = i as f32;
-            // *val = 0.;
+            // println!("{:?}", val);
+            // *val = rand::random::<f32>();
         }
     }
 
+    const THREAD_SIZE: u32 = 256;
+
     let program = load_shader(display, &PathBuf::from("shaders/sort.glsl"));
 
-    for block in 0..((NUM_VALUES as f32).log(2.) as i32 + 1) {
+    for block in 0..((num_values as f32).log(2.) as i32 + 1) {
         for iteration in (0..block).rev() {
             program.execute(uniform! {
                 ToSort: &*buffer,
                 current_block: block,
                 current_iteration: iteration
-            }, NUM_VALUES as u32 / 2, 1, 1);
-
-            // Print the intermediate result
-            println!("Block: {}, Iteration: {}", block, iteration);
-            let mapping = buffer.map();
-            for val in mapping.values.iter().take(16) {
-                println!("{:?}", val);
-            }
-            println!("...");
+            }, num_values as u32 / 2 / THREAD_SIZE, 1, 1);
         }
     }
 
@@ -172,6 +161,6 @@ fn main() {
     let display = glium::Display::new(window, context_builder, &event_loop)
         .unwrap();
 
-    // sorted_screenshot(&display);
-    prefix_sum(&display);
+    sorted_screenshot(&display);
+    // prefix_sum(&display);
 }

@@ -1,16 +1,16 @@
 #version 430
 
-layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
 
 layout(std430, binding = 3) buffer ToSort {
-    float values[];
+    vec4 values[];
 };
 
 uniform int current_block;
 uniform int current_iteration;
 
-void exchange(inout float i, inout float j) {
-    float k;
+void exchange(inout vec4 i, inout vec4 j) {
+    vec4 k;
     k = i;
     i = j;
     j = k;
@@ -33,7 +33,7 @@ void bitonic_sort() {
     int inner_block_offset = index % step;
     int final_index = inner_block_index + inner_block_offset;
 
-    if(values[final_index] * up > values[final_index + step] * up) {
+    if(length(values[final_index]) * up > length(values[final_index + step]) * up) {
         exchange(values[final_index], values[final_index + step]);
     }
 }
