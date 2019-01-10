@@ -1,0 +1,10 @@
+[package]
+name = "gpgpu"
+version = "0.1.0"
+authors = ["TheZoq2 <frans.skarman@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+glium = "0.23.0"
+rand = "0.6.1"
+scrap = "0.5.0"
