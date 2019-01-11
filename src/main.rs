@@ -105,36 +105,22 @@ fn sorted_screenshot(display: &impl Facade) {
             }
         }
     }
-    let mut imgbuf = image::ImageBuffer::new(w as u32, h as u32);
-    {
-        let mapping = buffer.map();
-        println!("First pixel {:?}", mapping.values[0].iter().map(|x| x * 255.).collect::<Vec<_>>());
-        for x in 0..(w as u32) {
-            for y in 0..(h as u32) {
-                let target = (x+ y * w as u32 ) as usize;
-                let values_u8 = [
-                    (mapping.values[target][0] * 255.) as u8,
-                    (mapping.values[target][1] * 255.) as u8,
-                    (mapping.values[target][2] * 255.) as u8,
-                    (mapping.values[target][3] * 255.) as u8,
-                ];
-                *imgbuf.get_pixel_mut(x, y) = image::Rgba(values_u8);
-            }
-        }
-    }
-    imgbuf.save("debug_output.png");
 
     const THREAD_SIZE: u32 = 256;
+    let work_group_size_y = (h as f32 / 2. / THREAD_SIZE as f32).ceil() as u32;
+    println!("w: {}, h: {}, work_group_size_y: {}", w, h, work_group_size_y);
 
     let program = load_shader(display, &PathBuf::from("shaders/sort.glsl"));
 
-    for block in 0..((num_values as f32).log(2.) as i32 + 1) {
+    for block in 0..((w as f32).log(2.) as i32 + 1) {
         for iteration in (0..block).rev() {
             program.execute(uniform! {
                 ToSort: &*buffer,
                 current_block: block,
-                current_iteration: iteration
-            }, num_values as u32 / 2 / THREAD_SIZE, 1, 1);
+                current_iteration: iteration,
+                width: w as u32,
+                height: h as u32,
+            }, w as u32, work_group_size_y, 1);
         }
     }
 
@@ -142,7 +128,6 @@ fn sorted_screenshot(display: &impl Facade) {
     let mut imgbuf = image::ImageBuffer::new(w as u32, h as u32);
     {
         let mapping = buffer.map();
-        println!("First pixel {:?}", mapping.values[0].iter().map(|x| x * 255.).collect::<Vec<_>>());
         for x in 0..(w as u32) {
             for y in 0..(h as u32) {
                 let target = (x+ y * w as u32 ) as usize;
