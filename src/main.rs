@@ -32,9 +32,10 @@ use image;
 
 
 fn load_shader(facade: &impl Facade, filename: &Path) -> ComputeShader {
-    let mut file = File::open(filename).expect("Failed to open file");
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).expect("Failed to read file");
+    // let mut file = File::open(filename).expect("Failed to open file");
+    // let mut contents = String::new();
+    // file.read_to_string(&mut contents).expect("Failed to read file");
+    let contents = include_str!("../shaders/sort.glsl");
 
     match ComputeShader::from_source(facade, &contents) {
         Ok(program) => program,
@@ -141,7 +142,7 @@ fn sorted_screenshot(display: &impl Facade) {
             }
         }
     }
-    imgbuf.save("output.png");
+    imgbuf.save("/tmp/locksort.png").expect("Failed to save output");
 }
 
 fn main() {
