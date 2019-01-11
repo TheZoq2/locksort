@@ -32,9 +32,10 @@ use image;
 
 
 fn load_shader(facade: &impl Facade, filename: &Path) -> ComputeShader {
-    let mut file = File::open(filename).expect("Failed to open file");
-    let mut contents = String::new();
-    file.read_to_string(&mut contents).expect("Failed to read file");
+    // let mut file = File::open(filename).expect("Failed to open file");
+    // let mut contents = String::new();
+    // file.read_to_string(&mut contents).expect("Failed to read file");
+    let contents = include_str!("../shaders/sort.glsl");
 
     match ComputeShader::from_source(facade, &contents) {
         Ok(program) => program,
@@ -105,24 +106,6 @@ fn sorted_screenshot(display: &impl Facade) {
             }
         }
     }
-    let mut imgbuf = image::ImageBuffer::new(w as u32, h as u32);
-    {
-        let mapping = buffer.map();
-        println!("First pixel {:?}", mapping.values[0].iter().map(|x| x * 255.).collect::<Vec<_>>());
-        for x in 0..(w as u32) {
-            for y in 0..(h as u32) {
-                let target = (x+ y * w as u32 ) as usize;
-                let values_u8 = [
-                    (mapping.values[target][0] * 255.) as u8,
-                    (mapping.values[target][1] * 255.) as u8,
-                    (mapping.values[target][2] * 255.) as u8,
-                    (mapping.values[target][3] * 255.) as u8,
-                ];
-                *imgbuf.get_pixel_mut(x, y) = image::Rgba(values_u8);
-            }
-        }
-    }
-    imgbuf.save("debug_output.png");
 
     const THREAD_SIZE: u32 = 256;
 
@@ -156,7 +139,7 @@ fn sorted_screenshot(display: &impl Facade) {
             }
         }
     }
-    imgbuf.save("output.png");
+    imgbuf.save("/tmp/locksort.png").expect("Failed to save output");
 }
 
 fn main() {

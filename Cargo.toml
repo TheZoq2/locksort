@@ -1,5 +1,5 @@
 [package]
-name = "gpgpu"
+name = "locksort"
 version = "0.1.0"
 authors = ["TheZoq2 <frans.skarman@gmail.com>"]
 edition = "2018"
