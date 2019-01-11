@@ -28,6 +28,8 @@ use glium::{
 
 use scrap::{Capturer, Display};
 
+use image;
+
 
 fn load_shader(facade: &impl Facade, filename: &Path) -> ComputeShader {
     let mut file = File::open(filename).expect("Failed to open file");
@@ -55,7 +57,7 @@ fn sorted_screenshot(display: &impl Facade) {
     let mut capturer = Capturer::new(screenshot_display).expect("Couldn't begin capture");
     let (w, h) = (capturer.width(), capturer.height());
     // Capture a screenshot
-    let buffer = loop {
+    let pixels = loop {
         match capturer.frame() {
             Ok(buffer) => break buffer,
             Err(error) => {
@@ -77,18 +79,50 @@ fn sorted_screenshot(display: &impl Facade) {
     implement_uniform_block!(Data, values);
 
     // const NUM_VALUES: usize = 32;
-    let num_values = (2 as f32).powi(((w * h) as f32).log2() as i32) as usize;
+    let num_values = (2 as f32).powi(((w * h) as f32).log2().ceil() as i32) as usize;
+    println!("{:#?}", w * h);
+    println!("{}", num_values);
 
     let mut buffer: glium::uniforms::UniformBuffer<Data> =
               UniformBuffer::empty_unsized(display, 4*4 * num_values).unwrap();
 
     {
         let mut mapping = buffer.map();
-        for (_, val) in mapping.values.iter_mut().enumerate() {
+        for (i, val) in mapping.values.iter_mut().enumerate() {
             // println!("{:?}", val);
             // *val = rand::random::<f32>();
+            let start = i * 4;
+            if start < (w * h) * 4 {
+                *val = [
+                    pixels[start + 2] as f32 / 255.,
+                    pixels[start + 1] as f32 / 255.,
+                    pixels[start] as f32 / 255.,
+                    pixels[start + 3] as f32 / 255.,
+                ];
+            }
+            else {
+                *val = [0.;4]
+            }
         }
     }
+    let mut imgbuf = image::ImageBuffer::new(w as u32, h as u32);
+    {
+        let mapping = buffer.map();
+        println!("First pixel {:?}", mapping.values[0].iter().map(|x| x * 255.).collect::<Vec<_>>());
+        for x in 0..(w as u32) {
+            for y in 0..(h as u32) {
+                let target = (x+ y * w as u32 ) as usize;
+                let values_u8 = [
+                    (mapping.values[target][0] * 255.) as u8,
+                    (mapping.values[target][1] * 255.) as u8,
+                    (mapping.values[target][2] * 255.) as u8,
+                    (mapping.values[target][3] * 255.) as u8,
+                ];
+                *imgbuf.get_pixel_mut(x, y) = image::Rgba(values_u8);
+            }
+        }
+    }
+    imgbuf.save("debug_output.png");
 
     const THREAD_SIZE: u32 = 256;
 
@@ -104,53 +138,25 @@ fn sorted_screenshot(display: &impl Facade) {
         }
     }
 
+
+    let mut imgbuf = image::ImageBuffer::new(w as u32, h as u32);
     {
         let mapping = buffer.map();
-        for val in mapping.values.iter().take(9) {
-            println!("{:?}", val);
-        }
-        println!("...");
-    }
-}
-
-
-fn prefix_sum(display: &impl Facade) {
-    struct Data {
-        values: [f32],
-    }
-
-    implement_buffer_content!(Data);
-    implement_uniform_block!(Data, values);
-
-    const NUM_VALUES: usize = 16;
-
-    let mut buffer: glium::uniforms::UniformBuffer<Data> =
-              UniformBuffer::empty_unsized(display, 4 * NUM_VALUES).unwrap();
-
-    {
-        let mut mapping = buffer.map();
-        for (i, val) in mapping.values.iter_mut().enumerate() {
-            *val = i as f32;
-            // *val = 0.;
+        println!("First pixel {:?}", mapping.values[0].iter().map(|x| x * 255.).collect::<Vec<_>>());
+        for x in 0..(w as u32) {
+            for y in 0..(h as u32) {
+                let target = (x+ y * w as u32 ) as usize;
+                let values_u8 = [
+                    (mapping.values[target][0] * 255.) as u8,
+                    (mapping.values[target][1] * 255.) as u8,
+                    (mapping.values[target][2] * 255.) as u8,
+                    (mapping.values[target][3] * 255.) as u8,
+                ];
+                *imgbuf.get_pixel_mut(x, y) = image::Rgba(values_u8);
+            }
         }
     }
-
-    let program = load_shader(display, &PathBuf::from("shaders/prefix_sum.glsl"));
-
-    for i in 0..((NUM_VALUES as f32).log(2.) as u32) {
-        program.execute(uniform! {
-            Input: &*buffer,
-            iteration: i
-        }, NUM_VALUES as u32 / 2, 1, 1);
-    }
-
-    {
-        let mapping = buffer.map();
-        for val in mapping.values.iter() {
-            println!("{:?}", val);
-        }
-        println!("...");
-    }
+    imgbuf.save("output.png");
 }
 
 fn main() {
